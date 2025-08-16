@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>오늘의 성경 한 구절</title>
+  <meta name="description" content="매일 새로운 성경 한 구절을 보여주는 작은 웹사이트" />
+  <meta property="og:title" content="오늘의 성경 한 구절" />
+  <meta property="og:description" content="매일 새로운 성경 한 구절을 보여드립니다." />
+  <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://dummyimage.com/1200x630/eeeeee/111111&text=%EC%98%A4%EB%8A%98%EC%9D%98+%EC%84%B1%EA%B2%BD" />
+  <meta name="theme-color" content="#0ea5e9" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>📖</text></svg>">
+  <style>
+    :root{--bg:#0b1220;--card:#101827;--text:#e5e7eb;--muted:#9ca3af;--accent:#22d3ee;}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif;background:linear-gradient(180deg,#0b1220,#0e172a);color:var(--text);display:flex;align-items:center;justify-content:center;padding:24px}
+    .wrap{width:100%;max-width:720px}
+    .card{background:var(--card);border:1px solid rgba(255,255,255,0.06);border-radius:24px;box-shadow:0 10px 30px rgba(0,0,0,0.35);padding:28px}
+    header{display:flex;gap:12px;align-items:center;justify-content:space-between}
+    h1{font-size:20px;margin:0;letter-spacing:0.2px}
+    .date{font-size:14px;color:var(--muted)}
+    blockquote{margin:22px 0 12px;padding:0;font-size:24px;line-height:1.5;letter-spacing:0.2px}
+    .ref{color:var(--accent);font-weight:600;margin-top:8px}
+    .ver{color:var(--muted);font-size:13px}
+    .btns{display:flex;gap:10px;margin-top:18px}
+    button{border:1px solid rgba(255,255,255,0.12);background:#0b1220;color:var(--text);padding:10px 14px;border-radius:12px;cursor:pointer;font-weight:600}
+    button:hover{border-color:rgba(255,255,255,0.28)}
+    .tip{margin-top:18px;color:var(--muted);font-size:13px}
+    footer{margin-top:26px;font-size:12px;color:var(--muted);display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+    a{color:#7dd3fc;text-decoration:none}
+    a:hover{text-decoration:underline}
+    .credits{opacity:.8}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <header>
+        <h1>오늘의 성경 한 구절</h1>
+        <div class="date" id="date"></div>
+      </header>
+
+      <blockquote id="verse">로딩 중…</blockquote>
+      <div class="ref" id="ref"></div>
+      <div class="ver" id="version"></div>
+
+      <div class="btns">
+        <button id="copyBtn">구절 복사</button>
+        <button id="shareBtn">공유하기</button>
+        <button id="refreshBtn" title="페이지 새로고침">↻ 새로고침</button>
+      </div>
+
+      <p class="tip">※ 서울 시간(Asia/Seoul) 기준으로 날짜가 바뀌면 자동으로 새로운 구절이 표시됩니다.</p>
+
+      <footer>
+        <span class="credits">© <span id="year"></span> 오늘의 성경</span>
+        <span>
+          <a href="#" id="howLink">어떻게 작동하나요?</a>
+        </span>
+      </footer>
+    </div>
+  </div>
+
+  <dialog id="how">
+    <article style="max-width:680px;padding:16px 8px">
+      <h3>작동 원리</h3>
+      <p>이 페이지는 <strong>서울 기준 연중 몇 번째 날(DOY)</strong>을 계산해, 그 값으로 구절 목록에서 하나를 선택합니다. 목록을 늘리면 자동으로 주기가 길어집니다.</p>
+      <ol>
+        <li>구절 데이터는 별도의 <code>verses.json</code> 파일에 들어 있습니다.</li>
+        <li>날짜가 바뀌면(자정) 새 구절이 자동으로 계산됩니다.</li>
+        <li>인터넷 연결 없이도 동작합니다(외부 API 미사용).</li>
+      </ol>
+      <p>원하시면 공개 API(예: bible-api.com 등)를 사용하도록 쉽게 바꿀 수 있습니다.</p>
+      <div style="margin-top:8px"><button onclick="closeHow()">닫기</button></div>
+    </article>
+  </dialog>
+
+  <script>
+    let VERSES = [];
+
+    function getSeoulNow(){
+      const now = new Date();
+      const s = now.toLocaleString('sv-SE', { timeZone: 'Asia/Seoul' }).replace(' ', 'T');
+      return new Date(s);
+    }
+
+    function dayOfYearSeoul(d){
+      const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+      const utc = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+      return Math.floor((utc - yearStart) / 86400000) + 1;
+    }
+
+    function pickVerse(){
+      const nowKST = getSeoulNow();
+      const doy = dayOfYearSeoul(nowKST);
+      const idx = (doy - 1) % VERSES.length;
+      return VERSES[idx];
+    }
+
+    function render(){
+      const nowKST = getSeoulNow();
+      const v = pickVerse();
+      document.getElementById('date').textContent = nowKST.toLocaleDateString('ko-KR', {
+        timeZone: 'Asia/Seoul', year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+      });
+      document.getElementById('verse').textContent = '“' + v.t + '”';
+      document.getElementById('ref').textContent = v.r;
+      document.getElementById('version').textContent = v.v;
+      document.getElementById('year').textContent = nowKST.getFullYear();
+      document.title = `${v.r} — 오늘의 성경 한 구절`;
+    }
+
+    async function copyVerse(){
+      const v = pickVerse();
+      const text = `${v.r} ( ${v.v} )\n\n${v.t}`;
+      try{ await navigator.clipboard.writeText(text); alert('구절이 클립보드에 복사되었습니다.'); }
+      catch(e){ prompt('복사 실패. 아래 내용을 수동으로 복사하세요:', text); }
+    }
+
+    async function shareVerse(){
+      const v = pickVerse();
+      const text = `${v.r} — ${v.t}`;
+      const shareData = { title: '오늘의 성경 한 구절', text, url: location.href };
+      if(navigator.share){
+        try{ await navigator.share(shareData); } catch(e){}
+      } else {
+        copyVerse();
+      }
+    }
+
+    function closeHow(){ document.getElementById('how').close(); }
+    function openHow(){ document.getElementById('how').showModal(); }
+
+    document.getElementById('copyBtn').addEventListener('click', copyVerse);
+    document.getElementById('shareBtn').addEventListener('click', shareVerse);
+    document.getElementById('refreshBtn').addEventListener('click', () => location.reload());
+    document.getElementById('howLink').addEventListener('click', (e)=>{ e.preventDefault(); openHow(); });
+
+    function scheduleMidnightRefresh(){
+      const now = getSeoulNow();
+      const next = new Date(now);
+      next.setDate(now.getDate() + 1);
+      next.setHours(0,0,2,0);
+      const ms = next - now;
+      setTimeout(() => { render(); scheduleMidnightRefresh(); }, ms);
+    }
+
+    async function init(){
+      try {
+        const res = await fetch('verses.json');
+        VERSES = await res.json();
+        render();
+        scheduleMidnightRefresh();
+      } catch (e) {
+        document.getElementById('verse').textContent = '구절 데이터를 불러오지 못했습니다.';
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>
+
